@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 from audio_utils import (
     calculate_audio_level,
@@ -18,7 +18,33 @@ from audio_utils import (
 )
 from openai_utils import SUPPORTED_NOTE_MODES, generate_notes, transcribe_audio
 
-load_dotenv()
+APP_DIR = Path(__file__).resolve().parent
+ROOT_DIR = APP_DIR.parent
+
+
+def load_environment() -> None:
+    """Load .env files from the app directory and repo root, without exposing values."""
+    # Support both documented workflows:
+    # 1. cd live-audio-notes-assistant && streamlit run app.py
+    # 2. streamlit run live-audio-notes-assistant/app.py from the repo root
+    for env_path in (ROOT_DIR / ".env", APP_DIR / ".env"):
+        if env_path.exists():
+            load_dotenv(env_path, override=False)
+
+
+def env_example_has_real_key() -> bool:
+    """Detect the common mistake of pasting a real key into .env.example."""
+    placeholder = "your_openai_api_key_here"
+    for example_path in (ROOT_DIR / ".env.example", APP_DIR / ".env.example"):
+        if not example_path.exists():
+            continue
+        value = (dotenv_values(example_path).get("OPENAI_API_KEY") or "").strip()
+        if value and value != placeholder:
+            return True
+    return False
+
+
+load_environment()
 
 st.set_page_config(page_title="Live Audio Notes Assistant", layout="wide")
 st.title("Live Audio Notes Assistant")
@@ -110,8 +136,15 @@ def process_one_chunk(device_id: int, chunk_seconds: int, sample_rate: int, mode
 
 init_session_state()
 
-if not os.getenv("OPENAI_API_KEY"):
+api_key_available = bool(os.getenv("OPENAI_API_KEY"))
+if not api_key_available:
     st.error("OPENAI_API_KEY is missing. Create a .env file with OPENAI_API_KEY=your_key_here")
+    if env_example_has_real_key():
+        st.warning(
+            "It looks like an API key was pasted into .env.example. Rename or copy .env.example to .env, "
+            "put the real key in .env, and reset .env.example back to the placeholder. If that key was "
+            "shared in a screenshot or committed anywhere, rotate it in the OpenAI dashboard."
+        )
 
 try:
     devices = list_input_devices()
@@ -147,9 +180,9 @@ with st.sidebar:
     sample_rate = st.selectbox("Sample rate", options=[16000, 24000, 44100, 48000], index=0)
     mode = st.selectbox("Notes mode", options=SUPPORTED_NOTE_MODES, index=0)
 
-    record_clicked = st.button("Record one chunk", disabled=not devices or not os.getenv("OPENAI_API_KEY"))
+    record_clicked = st.button("Record one chunk", disabled=not devices or not api_key_available)
     col_start, col_stop = st.columns(2)
-    start_clicked = col_start.button("Start auto mode", disabled=not devices or not os.getenv("OPENAI_API_KEY"))
+    start_clicked = col_start.button("Start auto mode", disabled=not devices or not api_key_available)
     stop_clicked = col_stop.button("Stop auto mode")
     clear_clicked = st.button("Clear session")
 
@@ -178,7 +211,7 @@ if record_clicked and selected_device:
 # Streamlit reruns the script after interactions. For auto mode, this MVP records
 # one chunk per run and then calls st.rerun(), creating a simple repeated loop
 # that remains stoppable by pressing Stop auto mode on the next render.
-if st.session_state.auto_mode and selected_device and os.getenv("OPENAI_API_KEY"):
+if st.session_state.auto_mode and selected_device and api_key_available:
     process_one_chunk(selected_device["id"], chunk_seconds, sample_rate, mode)
     st.rerun()
 

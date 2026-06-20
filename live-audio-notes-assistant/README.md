@@ -55,7 +55,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Then edit `.env` and replace `your_openai_api_key_here` with your real OpenAI API key. If `python3.11` is not installed, install Python 3.11+ first; Python 3.8 is older than this project target.
+Then edit `.env` and replace `your_openai_api_key_here` with your real OpenAI API key. Do not put real keys in `.env.example`; it is only a template. If `python3.11` is not installed, install Python 3.11+ first; Python 3.8 is older than this project target.
 
 ## Run
 
@@ -98,8 +98,9 @@ streamlit run live-audio-notes-assistant/app.py
 ### OPENAI_API_KEY missing
 
 - Copy `.env.example` to `.env`.
-- Add `OPENAI_API_KEY=your_real_key_here`.
+- Add `OPENAI_API_KEY=your_real_key_here` to `.env`, not `.env.example`.
 - Restart Streamlit so the environment is reloaded.
+- If you pasted a real key into `.env.example` or shared it in a screenshot, rotate that key in the OpenAI dashboard and reset `.env.example` to the placeholder.
 
 ### OpenAI API billing/key issue
 

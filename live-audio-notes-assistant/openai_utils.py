@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from openai import OpenAI
 
 SUPPORTED_NOTE_MODES = [
@@ -25,6 +27,11 @@ NOTE_TAKING_INSTRUCTIONS = (
 
 def get_openai_client() -> OpenAI:
     """Create an OpenAI client from OPENAI_API_KEY in the environment."""
+    app_dir = Path(__file__).resolve().parent
+    for env_path in (app_dir.parent / ".env", app_dir / ".env"):
+        if env_path.exists():
+            load_dotenv(env_path, override=False)
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is missing. Create a .env file with OPENAI_API_KEY=your_key_here.")

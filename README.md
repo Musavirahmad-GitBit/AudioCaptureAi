@@ -14,7 +14,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Then edit `.env` and add your real OpenAI API key:
+Then edit `.env` and add your real OpenAI API key. Do not paste your real key into `.env.example`; that file is only a template:
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
@@ -41,5 +41,7 @@ If `source` is split across two terminal lines, the path will be broken and shel
 ```bash
 source .venv/bin/activate
 ```
+
+If you already pasted a real key into `.env.example` or shared it in a screenshot, rotate that key in the OpenAI dashboard and put the new key only in `.env`.
 
 For full BlackHole 2ch setup, features, troubleshooting, and limitations, see [`live-audio-notes-assistant/README.md`](live-audio-notes-assistant/README.md).
