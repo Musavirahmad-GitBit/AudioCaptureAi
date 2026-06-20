@@ -17,6 +17,7 @@ Use only with permission. This project is intended for lectures, webinars, podca
 - Clear session
 - Basic audio-level debugging
 - Free browser live transcription mode for no-quota, near-instant dictation in supported browsers
+- Optional free local LLM notes with Ollama
 
 ## How to get an OpenAI API key
 
@@ -43,6 +44,29 @@ If your OpenAI API quota is finished, use **Free browser live transcription** fr
 - Works best in Chrome or Edge.
 - Requires browser microphone permission. Choose BlackHole 2ch or your permitted input source if macOS/browser input selection is shown.
 - Is not the same as AI note generation; notes are local heuristic notes, not OpenAI-generated notes.
+
+## Optional free local LLM notes with Ollama
+
+For free LLM-style notes while OpenAI quota is unavailable, install Ollama and run a small local model. This does not call OpenAI.
+
+1. Install Ollama from [ollama.com](https://ollama.com/).
+2. Pull a small model:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+3. Start Ollama if it is not already running:
+
+```bash
+ollama serve
+```
+
+4. In the app, choose **Free browser live transcription**.
+5. Open **Optional: Free local LLM notes with Ollama**.
+6. Paste transcript text from the browser transcript area and click **Generate free local LLM notes**.
+
+Recommended starter models: `llama3.2:3b`, `gemma2:2b`, or `qwen2.5:3b`. Larger models may be better but slower.
 
 ## macOS BlackHole setup
 
@@ -152,6 +176,7 @@ streamlit run live-audio-notes-assistant/app.py
 - System audio capture depends on macOS routing.
 - OpenAI mode requires OpenAI API billing/credits.
 - Free browser mode depends on browser speech-recognition support and may not work in every browser.
+- Optional Ollama notes require a local Ollama install and a downloaded model.
 - Use only where permitted.
 
 ## Project structure

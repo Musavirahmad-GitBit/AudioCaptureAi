@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -170,6 +173,46 @@ FREE_TRANSCRIPTION_HTML = r"""
 """
 
 
+def generate_ollama_notes(transcript: str, mode: str, model: str = "llama3.2:3b") -> str:
+    """Generate notes with a local Ollama model without using paid API quota."""
+    if not transcript.strip():
+        return "Paste or capture some transcript text before generating local LLM notes."
+
+    prompt = f"""You are a helpful AI note-taking assistant. Use only the transcript below.
+Do not invent details. If something is unclear, say so.
+
+Note mode: {mode}
+
+Transcript:
+{transcript.strip()}
+
+Return concise, organized notes."""
+    payload = {
+        "model": model.strip() or "llama3.2:3b",
+        "prompt": prompt,
+        "stream": False,
+    }
+    request = urllib.request.Request(
+        "http://localhost:11434/api/generate",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            "Could not reach Ollama at http://localhost:11434. Install Ollama, run `ollama serve`, "
+            "and pull a model such as `ollama pull llama3.2:3b`."
+        ) from exc
+    except Exception as exc:
+        raise RuntimeError(f"Local Ollama notes generation failed: {exc}") from exc
+
+    return str(data.get("response") or "Ollama returned no notes.").strip()
+
+
 def render_free_browser_mode() -> None:
     """Render quota-free browser speech recognition mode with local notes."""
     st.success("Free mode is active: no OpenAI API quota is used.")
@@ -178,6 +221,36 @@ def render_free_browser_mode() -> None:
         "as the browser/input source if macOS offers an input choice. Browser speech recognition "
         "availability depends on your browser and operating system."
     )
+
+    with st.expander("Optional: Free local LLM notes with Ollama", expanded=False):
+        st.markdown(
+            "Install [Ollama](https://ollama.com/), run `ollama pull llama3.2:3b`, then paste a "
+            "transcript from the browser transcription box below to generate free local LLM notes."
+        )
+        ollama_model = st.text_input("Ollama model", value="llama3.2:3b")
+        ollama_mode = st.selectbox("Local LLM notes mode", options=SUPPORTED_NOTE_MODES, index=0)
+        ollama_transcript = st.text_area(
+            "Paste browser transcript here",
+            height=180,
+            placeholder="Copy transcript text from Free Browser Live Transcription and paste it here...",
+        )
+        if st.button("Generate free local LLM notes"):
+            try:
+                with st.spinner("Generating local notes with Ollama..."):
+                    st.session_state["ollama_notes"] = generate_ollama_notes(
+                        ollama_transcript, ollama_mode, ollama_model
+                    )
+            except Exception as exc:
+                st.error(str(exc))
+        if st.session_state.get("ollama_notes"):
+            st.text_area("Ollama notes", value=st.session_state["ollama_notes"], height=220)
+            st.download_button(
+                "Download Ollama notes (.txt)",
+                data=st.session_state["ollama_notes"],
+                file_name="free_ollama_notes.txt",
+                mime="text/plain",
+            )
+
     components.html(FREE_TRANSCRIPTION_HTML, height=760, scrolling=True)
 
 st.set_page_config(page_title="Live Audio Notes Assistant", layout="wide")

@@ -28,7 +28,7 @@ streamlit run live-audio-notes-assistant/app.py
 
 ## Free no-quota mode
 
-If your OpenAI quota is finished, select **Free browser live transcription** in the sidebar. This uses the browser speech-recognition API for near-instant interim transcripts and simple local notes, so it does not call OpenAI. Use Chrome or Edge for best support, allow microphone access, and select BlackHole 2ch/permitted audio as the input source when macOS or the browser offers an input selector.
+If your OpenAI quota is finished, select **Free browser live transcription** in the sidebar. This uses the browser speech-recognition API for near-instant interim transcripts and simple local notes, so it does not call OpenAI. Use Chrome or Edge for best support, allow microphone access, and select BlackHole 2ch/permitted audio as the input source when macOS or the browser offers an input selector. For free LLM-style notes, install Ollama and use the optional **Free local LLM notes with Ollama** expander in the app.
 
 ## If virtual environment creation was interrupted
 
