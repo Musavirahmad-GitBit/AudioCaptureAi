@@ -47,18 +47,26 @@ ChatGPT Pro does not automatically include API usage. OpenAI API billing is sepa
 ## Installation
 
 ```bash
-python -m venv .venv
+cd live-audio-notes-assistant
+python3.11 -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Then edit `.env` and replace `your_openai_api_key_here` with your real OpenAI API key.
+Then edit `.env` and replace `your_openai_api_key_here` with your real OpenAI API key. If `python3.11` is not installed, install Python 3.11+ first; Python 3.8 is older than this project target.
 
 ## Run
 
 ```bash
 streamlit run app.py
+```
+
+If you prefer to stay in the repository root instead, use:
+
+```bash
+streamlit run live-audio-notes-assistant/app.py
 ```
 
 ## Troubleshooting
@@ -98,6 +106,12 @@ streamlit run app.py
 - Verify the key was copied correctly.
 - Confirm API billing or credits are enabled in your OpenAI platform account.
 - Remember that ChatGPT Pro and API billing are separate.
+
+### Python or virtual environment problems
+
+- Make sure you are using Python 3.11+. Your prompt may show an older pyenv version such as Python 3.8; use `python3.11 -m venv .venv` instead.
+- If virtual environment creation was interrupted with `Ctrl+C`, run `rm -rf .venv` and create it again.
+- Run `source .venv/bin/activate` as one complete command. If your terminal line breaks in the middle of the path, `source` may fail with `no such file or directory`.
 
 ### sounddevice installation problems
 
