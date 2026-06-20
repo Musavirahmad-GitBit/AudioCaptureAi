@@ -16,6 +16,7 @@ Use only with permission. This project is intended for lectures, webinars, podca
 - Download transcript/notes
 - Clear session
 - Basic audio-level debugging
+- Free browser live transcription mode for no-quota, near-instant dictation in supported browsers
 
 ## How to get an OpenAI API key
 
@@ -31,6 +32,17 @@ OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ChatGPT Pro does not automatically include API usage. OpenAI API billing is separate from ChatGPT subscriptions, so make sure your API account has billing or credits enabled.
+
+## Free no-quota live transcription
+
+If your OpenAI API quota is finished, use **Free browser live transcription** from the sidebar. This mode:
+
+- Does not call OpenAI.
+- Uses your browser's built-in speech recognition for near-instant interim transcripts.
+- Generates simple local notes in the browser from the captured transcript.
+- Works best in Chrome or Edge.
+- Requires browser microphone permission. Choose BlackHole 2ch or your permitted input source if macOS/browser input selection is shown.
+- Is not the same as AI note generation; notes are local heuristic notes, not OpenAI-generated notes.
 
 ## macOS BlackHole setup
 
@@ -120,6 +132,13 @@ streamlit run live-audio-notes-assistant/app.py
 - Upgrade pip with `python -m pip install --upgrade pip`.
 - If PortAudio issues appear, install PortAudio with Homebrew: `brew install portaudio`, then reinstall requirements.
 
+### Free mode does not start
+
+- Use Chrome or Edge; Safari/Firefox may not expose compatible browser speech recognition.
+- Make sure browser microphone permission is allowed for `localhost:8501`.
+- If you need system audio, route audio to BlackHole 2ch and select it as the browser/input source when available.
+- Free mode does not use OpenAI quota, but browser speech recognition availability can vary by browser and macOS settings.
+
 ### Streamlit auto mode keeps rerunning
 
 - This is expected while auto mode is active. The MVP records one chunk per rerun.
@@ -131,7 +150,8 @@ streamlit run live-audio-notes-assistant/app.py
 - MVP uses chunk-based near-real-time processing, not true low-latency streaming.
 - Accuracy depends on audio quality.
 - System audio capture depends on macOS routing.
-- Requires OpenAI API billing/credits.
+- OpenAI mode requires OpenAI API billing/credits.
+- Free browser mode depends on browser speech-recognition support and may not work in every browser.
 - Use only where permitted.
 
 ## Project structure

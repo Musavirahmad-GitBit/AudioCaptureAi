@@ -26,6 +26,10 @@ Run the app from the repository root:
 streamlit run live-audio-notes-assistant/app.py
 ```
 
+## Free no-quota mode
+
+If your OpenAI quota is finished, select **Free browser live transcription** in the sidebar. This uses the browser speech-recognition API for near-instant interim transcripts and simple local notes, so it does not call OpenAI. Use Chrome or Edge for best support, allow microphone access, and select BlackHole 2ch/permitted audio as the input source when macOS or the browser offers an input selector.
+
 ## If virtual environment creation was interrupted
 
 If you pressed `Ctrl+C` while `python -m venv .venv` was still creating the environment, delete the partial environment and recreate it:

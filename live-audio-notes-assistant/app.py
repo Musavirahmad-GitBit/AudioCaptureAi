@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import dotenv_values, load_dotenv
 
 from audio_utils import (
@@ -45,6 +46,139 @@ def env_example_has_real_key() -> bool:
 
 
 load_environment()
+
+FREE_TRANSCRIPTION_HTML = r"""
+<div class="free-live-notes">
+  <style>
+    .free-live-notes { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #f5f5f5; }
+    .free-card { background: #151922; border: 1px solid #343946; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .free-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .free-button { border: 1px solid #4b5563; border-radius: 8px; padding: 9px 13px; color: #fff; background: #2563eb; cursor: pointer; font-weight: 650; }
+    .free-button.stop { background: #991b1b; }
+    .free-button.secondary { background: #374151; }
+    .free-button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .free-status { color: #cbd5e1; font-size: 0.95rem; }
+    .free-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 900px) { .free-grid { grid-template-columns: 1fr; } }
+    .free-box { min-height: 360px; white-space: pre-wrap; background: #262935; border: 1px solid #3b3f4c; border-radius: 10px; padding: 14px; overflow: auto; color: #f8fafc; }
+    .free-interim { color: #fbbf24; margin-top: 10px; min-height: 24px; }
+    .free-note { color: #bfdbfe; font-size: 0.95rem; line-height: 1.45; }
+  </style>
+  <div class="free-card">
+    <h3>Free Browser Live Transcription</h3>
+    <p class="free-note">
+      This mode uses your browser's built-in speech recognition instead of the OpenAI API, so it does not use API quota.
+      In Chrome, choose the permitted audio source/BlackHole input when the browser asks for microphone access.
+    </p>
+    <div class="free-row">
+      <button id="startBtn" class="free-button">Start live transcription</button>
+      <button id="stopBtn" class="free-button stop" disabled>Stop</button>
+      <button id="clearBtn" class="free-button secondary">Clear</button>
+      <button id="downloadTranscriptBtn" class="free-button secondary">Download transcript</button>
+      <button id="downloadNotesBtn" class="free-button secondary">Download notes</button>
+    </div>
+    <div id="status" class="free-status">Ready. Use only with permission.</div>
+  </div>
+  <div class="free-grid">
+    <div>
+      <h3>Live Transcript</h3>
+      <div id="transcript" class="free-box"></div>
+      <div id="interim" class="free-interim"></div>
+    </div>
+    <div>
+      <h3>Local Notes</h3>
+      <div id="notes" class="free-box"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const downloadTranscriptBtn = document.getElementById('downloadTranscriptBtn');
+  const downloadNotesBtn = document.getElementById('downloadNotesBtn');
+  const statusEl = document.getElementById('status');
+  const transcriptEl = document.getElementById('transcript');
+  const interimEl = document.getElementById('interim');
+  const notesEl = document.getElementById('notes');
+  let recognition = null;
+  let finalTranscript = '';
+  let shouldKeepListening = false;
+
+  function nowStamp() { return new Date().toLocaleTimeString(); }
+  function sentences(text) { return text.replace(/\s+/g, ' ').split(/[.!?]+/).map(s => s.trim()).filter(Boolean); }
+  function updateNotes() {
+    const items = sentences(finalTranscript);
+    const latest = items.slice(-8);
+    const actionWords = /\b(need to|should|must|follow up|todo|to do|action|next step|please)\b/i;
+    const questions = latest.filter(s => s.includes('?') || /\b(who|what|when|where|why|how)\b/i.test(s)).slice(-4);
+    const actions = items.filter(s => actionWords.test(s)).slice(-6);
+    const keyPoints = latest.slice(-6);
+    let output = `Updated ${nowStamp()}\n\nKey points:\n`;
+    output += keyPoints.length ? keyPoints.map(s => `• ${s}`).join('\n') : '• Waiting for more transcript.';
+    output += '\n\nPossible action items:\n';
+    output += actions.length ? actions.map(s => `• ${s}`).join('\n') : '• None detected yet.';
+    output += '\n\nPossible follow-up questions:\n';
+    output += questions.length ? questions.map(s => `• ${s}`).join('\n') : '• None detected yet.';
+    notesEl.textContent = output;
+  }
+  function setRunning(running) { startBtn.disabled = running; stopBtn.disabled = !running; }
+  function download(name, text) {
+    const blob = new Blob([text || 'Nothing captured yet.'], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = name; link.click(); URL.revokeObjectURL(url);
+  }
+
+  if (!SpeechRecognition) {
+    statusEl.textContent = 'Free live transcription is not supported in this browser. Use Chrome or Edge, or switch to OpenAI chunk mode.';
+    startBtn.disabled = true;
+    return;
+  }
+
+  function createRecognition() {
+    const r = new SpeechRecognition();
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = navigator.language || 'en-US';
+    r.onstart = () => { statusEl.textContent = 'Listening... choose/allow the permitted input source in your browser if prompted.'; setRunning(true); };
+    r.onerror = (event) => { statusEl.textContent = `Speech recognition error: ${event.error}. Check browser microphone permission and selected input.`; };
+    r.onend = () => { if (shouldKeepListening) { try { r.start(); } catch (e) {} } else { statusEl.textContent = 'Stopped.'; setRunning(false); } };
+    r.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) { finalTranscript += `[${nowStamp()}] ${text.trim()}\n`; }
+        else { interim += text; }
+      }
+      transcriptEl.textContent = finalTranscript;
+      interimEl.textContent = interim ? `Interim: ${interim}` : '';
+      updateNotes();
+    };
+    return r;
+  }
+  startBtn.onclick = () => { shouldKeepListening = true; recognition = createRecognition(); recognition.start(); };
+  stopBtn.onclick = () => { shouldKeepListening = false; if (recognition) recognition.stop(); };
+  clearBtn.onclick = () => { finalTranscript = ''; transcriptEl.textContent = ''; interimEl.textContent = ''; updateNotes(); };
+  downloadTranscriptBtn.onclick = () => download('free_live_transcript.txt', finalTranscript);
+  downloadNotesBtn.onclick = () => download('free_live_notes.txt', notesEl.textContent);
+  updateNotes();
+})();
+</script>
+"""
+
+
+def render_free_browser_mode() -> None:
+    """Render quota-free browser speech recognition mode with local notes."""
+    st.success("Free mode is active: no OpenAI API quota is used.")
+    st.warning(
+        "For best results, use Chrome or Edge and allow microphone access. Select BlackHole 2ch "
+        "as the browser/input source if macOS offers an input choice. Browser speech recognition "
+        "availability depends on your browser and operating system."
+    )
+    components.html(FREE_TRANSCRIPTION_HTML, height=760, scrolling=True)
 
 st.set_page_config(page_title="Live Audio Notes Assistant", layout="wide")
 st.title("Live Audio Notes Assistant")
@@ -137,14 +271,6 @@ def process_one_chunk(device_id: int, chunk_seconds: int, sample_rate: int, mode
 init_session_state()
 
 api_key_available = bool(os.getenv("OPENAI_API_KEY"))
-if not api_key_available:
-    st.error("OPENAI_API_KEY is missing. Create a .env file with OPENAI_API_KEY=your_key_here")
-    if env_example_has_real_key():
-        st.warning(
-            "It looks like an API key was pasted into .env.example. Rename or copy .env.example to .env, "
-            "put the real key in .env, and reset .env.example back to the placeholder. If that key was "
-            "shared in a screenshot or committed anywhere, rotate it in the OpenAI dashboard."
-        )
 
 try:
     devices = list_input_devices()
@@ -158,6 +284,12 @@ if not devices:
 
 with st.sidebar:
     st.header("Controls")
+    transcription_engine = st.radio(
+        "Transcription engine",
+        options=["Free browser live transcription", "OpenAI chunk transcription"],
+        index=0 if not os.getenv("OPENAI_API_KEY") else 1,
+        help="Free mode does not use OpenAI quota. OpenAI mode uses chunk recording and AI notes.",
+    )
     device_labels = [
         f"{device['name']} (id {device['id']}, {device['max_input_channels']} input ch)" for device in devices
     ]
@@ -180,13 +312,23 @@ with st.sidebar:
     sample_rate = st.selectbox("Sample rate", options=[16000, 24000, 44100, 48000], index=0)
     mode = st.selectbox("Notes mode", options=SUPPORTED_NOTE_MODES, index=0)
 
-    record_clicked = st.button("Record one chunk", disabled=not devices or not api_key_available)
+    record_clicked = st.button("Record one chunk", disabled=transcription_engine != "OpenAI chunk transcription" or not devices or not api_key_available)
     col_start, col_stop = st.columns(2)
-    start_clicked = col_start.button("Start auto mode", disabled=not devices or not api_key_available)
+    start_clicked = col_start.button("Start auto mode", disabled=transcription_engine != "OpenAI chunk transcription" or not devices or not api_key_available)
     stop_clicked = col_stop.button("Stop auto mode")
     clear_clicked = st.button("Clear session")
 
 selected_device = devices[selected_index] if devices and selected_index is not None else None
+
+if transcription_engine == "OpenAI chunk transcription" and not api_key_available:
+    st.error("OPENAI_API_KEY is missing. Create a .env file with OPENAI_API_KEY=your_key_here")
+    if env_example_has_real_key():
+        st.warning(
+            "It looks like an API key was pasted into .env.example. Rename or copy .env.example to .env, "
+            "put the real key in .env, and reset .env.example back to the placeholder. If that key was "
+            "shared in a screenshot or committed anywhere, rotate it in the OpenAI dashboard."
+        )
+
 if selected_device:
     st.write(f"Selected device: **{selected_device['name']}**")
 if blackhole_device:
@@ -197,6 +339,10 @@ else:
         "loopback/system-audio input device."
     )
 
+if transcription_engine == "Free browser live transcription":
+    render_free_browser_mode()
+    st.stop()
+
 if clear_clicked:
     clear_session()
     st.rerun()
@@ -205,13 +351,13 @@ if stop_clicked:
 if start_clicked:
     st.session_state.auto_mode = True
 
-if record_clicked and selected_device:
+if transcription_engine == "OpenAI chunk transcription" and record_clicked and selected_device:
     process_one_chunk(selected_device["id"], chunk_seconds, sample_rate, mode)
 
 # Streamlit reruns the script after interactions. For auto mode, this MVP records
 # one chunk per run and then calls st.rerun(), creating a simple repeated loop
 # that remains stoppable by pressing Stop auto mode on the next render.
-if st.session_state.auto_mode and selected_device and api_key_available:
+if transcription_engine == "OpenAI chunk transcription" and st.session_state.auto_mode and selected_device and api_key_available:
     process_one_chunk(selected_device["id"], chunk_seconds, sample_rate, mode)
     st.rerun()
 
